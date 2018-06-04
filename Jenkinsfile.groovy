@@ -56,7 +56,7 @@ podTemplate(label: 'mypod', containers: [
             container('docker') {
                 sh "docker build -t ${dockerUser}/${dockerProject}:${version} ."
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                    sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD}"
+                    sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
                 }
                 sh "docker push ${dockerUser}/${dockerProject}:${version}"
             }
