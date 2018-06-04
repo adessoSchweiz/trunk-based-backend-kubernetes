@@ -65,6 +65,8 @@ podTemplate(label: 'mypod', containers: [
         stage('deploy to test') {
             sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProject}:todo/image: ${dockerUser}\\/${dockerProject}:${version}/' kubeconfig.yml"
             sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
+            sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
+            sh "sed -i -e 's/nodePort: todo/nodePort: 31080/' kubeconfig.yml"
             container('kubectl') {
                 sh "kubectl apply -f kubeconfig.yml"
             }
