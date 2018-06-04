@@ -29,6 +29,9 @@ podTemplate(label: 'mypod', containers: [
 
         stage('checkout & unit tests & build') {
             git url: "https://github.com/${repoUser}/${repoName}"
+            container('maven') {
+                sh 'mvn clean package'
+            }
             junit allowEmptyResults: true, testResults: '**/target/surefire-reports/TEST-*.xml'
         }
 
