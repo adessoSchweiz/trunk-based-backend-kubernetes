@@ -7,7 +7,7 @@ podTemplate(label: 'mypod', containers: [
         containerTemplate(name: 'maven', image: 'maven:3.5.2-jdk-8', command: 'cat', ttyEnabled: true)
 ],
         volumes: [
-                hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock'),
+                hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
         ]) {
     node('mypod') {
         properties([
@@ -45,8 +45,9 @@ podTemplate(label: 'mypod', containers: [
             sh "git config user.email \"jenkins@adesso.ch\""
             sh "git config user.name \"Jenkins\""
             sh "git tag -a ${version} -m \"${version}\""
+
             withCredentials([usernamePassword(credentialsId: 'github', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
-                sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/${repoUser}/${repoName}.git --tags"
+                sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD =~ /\$\$.*?\$\$/}@github.com/${repoUser}/${repoName}.git --tags"
             }
 
             container('docker') {
