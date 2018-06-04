@@ -47,7 +47,7 @@ podTemplate(label: 'mypod', containers: [
             sh "git tag -a ${version} -m \"${version}\""
 
             withCredentials([usernamePassword(credentialsId: 'github', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
-                sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD.replaceAll('\$', '\\\$')}@github.com/${repoUser}/${repoName}.git --tags"
+                sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD.replaceAll('\\$', '\\\\\\\$')}@github.com/${repoUser}/${repoName}.git --tags"
             }
 
             container('docker') {
