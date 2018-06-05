@@ -77,7 +77,7 @@ podTemplate(label: 'mypod', containers: [
 
         stage('system tests') {
             container('maven') {
-                sh "mvn -s settings.xml clean integration-test failsafe:integration-test failsafe:verify"
+                sh "mvn clean integration-test failsafe:integration-test failsafe:verify"
             }
             junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/TEST-*.xml'
         }
