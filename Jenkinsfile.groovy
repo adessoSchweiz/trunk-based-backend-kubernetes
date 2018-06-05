@@ -96,7 +96,7 @@ podTemplate(label: 'mypod', containers: [
 
                 stage('Build Report Image') {
                     container('docker') {
-                        def image = "${dockerUser}/${dockerProjectPerformanceTests}-testing:${version}"
+                        def image = "${dockerUser}/${dockerProjectPerformanceTests}:${version}"
                         sh "docker build -t ${image} ."
                         withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                             sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
@@ -106,7 +106,7 @@ podTemplate(label: 'mypod', containers: [
                 }
 
                 stage('Deploy Testing on Dev') {
-                    sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}-testing:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}-testing:${version}/' kubeconfig.yml"
+                    sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:${version}/' kubeconfig.yml"
                     sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
                     sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
                     sh "sed -i -e 's/nodePort: todo/nodePort: 31400/' kubeconfig.yml"
