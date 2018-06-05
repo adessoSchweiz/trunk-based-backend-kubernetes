@@ -26,6 +26,7 @@ podTemplate(label: 'mypod', containers: [
         def repoName = 'trunk-based-backend-kubernetes'
         def dockerUser = 'adesso'
         def dockerProject = 'trunk-based'
+        def repoNamePerformanceTests = 'trunk-based-testing'
 
         stage('checkout & unit tests & build') {
             git url: "https://github.com/${repoUser}/${repoName}"
@@ -37,7 +38,7 @@ podTemplate(label: 'mypod', containers: [
 
         stage('build image & git tag & docker push') {
             version = semanticReleasing()
-            currentBuild.displayName = env.VERSION
+            currentBuild.displayName = version
             wrap([$class: 'BuildUser']) {
                 currentBuild.description = "Started by: ${BUILD_USER} (${BUILD_USER_EMAIL})"
             }
@@ -74,10 +75,8 @@ podTemplate(label: 'mypod', containers: [
         }
 
         stage('system tests') {
-            withCredentials([usernamePassword(credentialsId: 'application', passwordVariable: 'APPLICATION_PASSWORD', usernameVariable: 'APPLICATION_USER_NAME')]) {
-                container('maven') {
-                    sh "mvn -s settings.xml clean integration-test failsafe:integration-test failsafe:verify"
-                }
+            container('maven') {
+                sh "mvn -s settings.xml clean integration-test failsafe:integration-test failsafe:verify"
             }
             junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/TEST-*.xml'
         }
@@ -85,7 +84,7 @@ podTemplate(label: 'mypod', containers: [
         stage('last test') {
             dir('testing') {
                 stage('Performance Tests') {
-                    git url: 'https://github.com/khinkali/sink-testing'
+                    git url: "https://github.com/${repoUser}/${repoNamePerformanceTests}"
                     container('maven') {
                         sh 'mvn clean gatling:integration-test'
                     }
@@ -96,17 +95,18 @@ podTemplate(label: 'mypod', containers: [
 
                 stage('Build Report Image') {
                     container('docker') {
-                        sh "docker build -t khinkali/sink-testing:${env.VERSION} ."
+                        def image = "${dockerUser}/${dockerProject}-testing:${version}"
+                        sh "docker build -t ${image} ."
                         withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                            sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD}"
+                            sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
                         }
-                        sh "docker push khinkali/sink-testing:${env.VERSION}"
+                        sh "docker push ${image}"
                     }
                 }
 
                 stage('Deploy Testing on Dev') {
-                    sh "sed -i -e 's/image: khinkali\\/sink-testing:todo/image: khinkali\\/sink-testing:${env.VERSION}/' kubeconfig.yml"
-                    sh "sed -i -e 's/value: \"todo\"/value: \"${env.VERSION}\"/' kubeconfig.yml"
+                    sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProject}-testing:todo/image: ${dockerUser}\\/${dockerProject}-testing:${version}/' kubeconfig.yml"
+                    sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
                     container('kubectl') {
                         sh "kubectl apply -f kubeconfig.yml"
                     }
@@ -121,7 +121,7 @@ podTemplate(label: 'mypod', containers: [
 
                 withCredentials([usernamePassword(credentialsId: 'github-api-token', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'GIT_USERNAME')]) {
                     container('curl') {
-                        gitHubRelease(env.VERSION, 'khinkali', 'sink', GITHUB_TOKEN)
+                        gitHubRelease(version, 'khinkali', 'sink', GITHUB_TOKEN)
                     }
                 }
                 sh "sed -i -e 's/namespace: test/namespace: default/' startup.yml"
@@ -131,7 +131,7 @@ podTemplate(label: 'mypod', containers: [
                     sh "kubectl apply -f startup.yml"
                 }
                 container('curl') {
-                    checkVersion(env.VERSION, 'http://5.189.154.24:30081/sink/resources/health', 1, 5)
+                    checkVersion(version, 'http://5.189.154.24:30081/sink/resources/health', 1, 5)
                 }
             } catch (err) {
                 def user = err.getCauses()[0].getUser()
