@@ -70,7 +70,7 @@ podTemplate(label: 'mypod', containers: [
             container('kubectl') {
                 sh "kubectl apply -f kubeconfig.yml"
             }
-            waitUntilReady('app=trunk-based', 'trunk-based')
+            waitUntilReady('app=trunk-based', 'trunk-based', version)
         }
 
         stage('system tests') {
