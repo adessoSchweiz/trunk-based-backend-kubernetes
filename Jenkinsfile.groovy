@@ -72,7 +72,7 @@ podTemplate(label: 'mypod', containers: [
             container('kubectl') {
                 sh "kubectl apply -f kubeconfig.yml"
             }
-            waitUntilReady('app=trunk-based', 'trunk-based', version)
+            waitUntilReady('app=trunk-based', 'trunk-based', version, 'test')
         }
 
         stage('system tests') {
@@ -124,18 +124,16 @@ podTemplate(label: 'mypod', containers: [
 
                 withCredentials([usernamePassword(credentialsId: 'github-api-token', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'GIT_USERNAME')]) {
                     container('curl') {
-                        gitHubRelease(version, 'khinkali', 'sink', GITHUB_TOKEN)
+                        gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
                     }
                 }
-                sh "sed -i -e 's/namespace: test/namespace: default/' startup.yml"
-                sh "sed -i -e 's/nodePort: 31081/nodePort: 30081/' startup.yml"
-                sh "sed -i -e 's/value: \"http:\\/\\/5.189.154.24:31190\\/auth\"/value: \"http:\\/\\/5.189.154.24:30190\\/auth\"/' startup.yml"
+                def kubeconfig = 'kubeconfig.yml'
+                sh "sed -i -e 's/namespace: test/namespace: default/' ${kubeconfig}"
+                sh "sed -i -e 's/nodePort: 31000/nodePort: 30000/' ${kubeconfig}"
                 container('kubectl') {
-                    sh "kubectl apply -f startup.yml"
+                    sh "kubectl apply -f ${kubeconfig}"
                 }
-                container('curl') {
-                    checkVersion(version, 'http://5.189.154.24:30081/sink/resources/health', 1, 5)
-                }
+                waitUntilReady('app=trunk-based', 'trunk-based', version, 'default')
             } catch (err) {
                 def user = err.getCauses()[0].getUser()
                 currentBuild.description = "${currentBuild.description}\nNoGo for Prod by: ${user}"
