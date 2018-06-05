@@ -26,7 +26,8 @@ podTemplate(label: 'mypod', containers: [
         def repoName = 'trunk-based-backend-kubernetes'
         def dockerUser = 'adesso'
         def dockerProject = 'trunk-based'
-        def repoNamePerformanceTests = 'trunk-based-testing'
+        def repoNamePerformanceTests = 'performance-testing'
+        def dockerProjectPerformanceTests = 'performance-testing'
 
         stage('checkout & unit tests & build') {
             git url: "https://github.com/${repoUser}/${repoName}"
@@ -95,7 +96,7 @@ podTemplate(label: 'mypod', containers: [
 
                 stage('Build Report Image') {
                     container('docker') {
-                        def image = "${dockerUser}/${dockerProject}-testing:${version}"
+                        def image = "${dockerUser}/${dockerProjectPerformanceTests}-testing:${version}"
                         sh "docker build -t ${image} ."
                         withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                             sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
@@ -105,8 +106,10 @@ podTemplate(label: 'mypod', containers: [
                 }
 
                 stage('Deploy Testing on Dev') {
-                    sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProject}-testing:todo/image: ${dockerUser}\\/${dockerProject}-testing:${version}/' kubeconfig.yml"
+                    sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}-testing:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}-testing:${version}/' kubeconfig.yml"
                     sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
+                    sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
+                    sh "sed -i -e 's/nodePort: todo/nodePort: 31400/' kubeconfig.yml"
                     container('kubectl') {
                         sh "kubectl apply -f kubeconfig.yml"
                     }
