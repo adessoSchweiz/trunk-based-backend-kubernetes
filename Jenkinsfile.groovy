@@ -115,6 +115,7 @@ podTemplate(label: 'mypod', containers: [
                 }
 
                 stash includes: 'kubeconfig.yml', name: 'kubeconfig'
+                stash includes: '.git/**/*', name: 'git'
             }
         }
     }
@@ -135,6 +136,7 @@ podTemplate(label: 'mypod', containers: [
     if (currentBuild.result != 'ABORTED') {
         node('mypod') {
             unstash 'kubeconfig'
+            unstash 'git'
 
             stage('release to prod') {
                 withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
