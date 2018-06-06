@@ -113,10 +113,12 @@ podTemplate(label: 'mypod', containers: [
                 container('kubectl') {
                     sh "kubectl apply -f kubeconfig.yml"
                 }
-
-                stash includes: 'kubeconfig.yml', name: 'kubeconfig'
-                stash includes: '.git/**/*', name: 'git', useDefaultExcludes: false
             }
+        }
+        stage('Stash files') {
+
+            stash includes: 'kubeconfig.yml', name: 'kubeconfig'
+            stash includes: '.git/**/*', name: 'git', useDefaultExcludes: false
         }
     }
 
@@ -135,8 +137,10 @@ podTemplate(label: 'mypod', containers: [
 
     if (currentBuild.result != 'ABORTED') {
         node('mypod') {
-            unstash 'kubeconfig'
-            unstash 'git'
+            stage('Unstash files') {
+                unstash 'kubeconfig'
+                unstash 'git'
+            }
 
             stage('release to prod') {
                 withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
