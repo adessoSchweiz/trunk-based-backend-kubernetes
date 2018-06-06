@@ -9,6 +9,9 @@ podTemplate(label: 'mypod', containers: [
         volumes: [
                 hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
         ]) {
+
+    def version
+
     node('mypod') {
         properties([
                 buildDiscarder(
@@ -21,7 +24,6 @@ podTemplate(label: 'mypod', containers: [
                 pipelineTriggers([])
         ])
 
-        def version = 'not set'
         def repoUser = 'adessoSchweiz'
         def repoName = 'trunk-based-backend-kubernetes'
         def dockerUser = 'adesso'
