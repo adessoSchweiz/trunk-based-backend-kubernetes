@@ -115,7 +115,7 @@ podTemplate(label: 'mypod', containers: [
                 }
 
                 stash includes: 'kubeconfig.yml', name: 'kubeconfig'
-                stash includes: '.git/**/*', name: 'git'
+                stash includes: '.git/**/*', name: 'git', useDefaultExcludes: false
             }
         }
     }
