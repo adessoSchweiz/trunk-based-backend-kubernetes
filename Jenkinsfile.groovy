@@ -133,20 +133,22 @@ podTemplate(label: 'mypod', containers: [
         }
     }
 
-    node('mypod') {
-        unstash 'kubeconfig'
+    if (currentBuild.result != 'ABORTED') {
+        node('mypod') {
+            unstash 'kubeconfig'
 
-        withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
-            container('curl') {
-                gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
+            withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
+                container('curl') {
+                    gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
+                }
             }
+            def kubeconfig = 'kubeconfig.yml'
+            sh "sed -i -e 's/namespace: test/namespace: default/' ${kubeconfig}"
+            sh "sed -i -e 's/nodePort: 31000/nodePort: 30000/' ${kubeconfig}"
+            container('kubectl') {
+                sh "kubectl apply -f ${kubeconfig}"
+            }
+            waitUntilReady('app=trunk-based', 'trunk-based', version, 'default')
         }
-        def kubeconfig = 'kubeconfig.yml'
-        sh "sed -i -e 's/namespace: test/namespace: default/' ${kubeconfig}"
-        sh "sed -i -e 's/nodePort: 31000/nodePort: 30000/' ${kubeconfig}"
-        container('kubectl') {
-            sh "kubectl apply -f ${kubeconfig}"
-        }
-        waitUntilReady('app=trunk-based', 'trunk-based', version, 'default')
     }
 }
