@@ -113,32 +113,40 @@ podTemplate(label: 'mypod', containers: [
                     container('kubectl') {
                         sh "kubectl apply -f kubeconfig.yml"
                     }
+
+                    stash includes: 'kubeconfig.yml', name: 'kubeconfig'
                 }
             }
         }
+    }
 
-        stage('deploy to prod') {
-            try {
-                def userInput = input(message: 'manuel user tests ok?', submitterParameter: 'submitter')
-                currentBuild.description = "${currentBuild.description}\nGo for Prod by: ${userInput}"
+    stage('deploy to prod') {
+        try {
+            def userInput = input(message: 'manuel user tests ok?', submitterParameter: 'submitter')
+            currentBuild.description = "${currentBuild.description}\nGo for Prod by: ${userInput}"
 
-                withCredentials([usernamePassword(credentialsId: 'github-api-token', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'GIT_USERNAME')]) {
-                    container('curl') {
-                        gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
-                    }
-                }
-                def kubeconfig = 'kubeconfig.yml'
-                sh "sed -i -e 's/namespace: test/namespace: default/' ${kubeconfig}"
-                sh "sed -i -e 's/nodePort: 31000/nodePort: 30000/' ${kubeconfig}"
-                container('kubectl') {
-                    sh "kubectl apply -f ${kubeconfig}"
-                }
-                waitUntilReady('app=trunk-based', 'trunk-based', version, 'default')
-            } catch (err) {
-                def user = err.getCauses()[0].getUser()
-                currentBuild.description = "${currentBuild.description}\nNoGo for Prod by: ${user}"
-                currentBuild.result = 'ABORTED'
+
+        } catch (err) {
+            def user = err.getCauses()[0].getUser()
+            currentBuild.description = "${currentBuild.description}\nNoGo for Prod by: ${user}"
+            currentBuild.result = 'ABORTED'
+        }
+    }
+
+    node('mypod') {
+        unstash 'kubeconfig'
+
+        withCredentials([usernamePassword(credentialsId: 'github-api-token', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'GIT_USERNAME')]) {
+            container('curl') {
+                gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
             }
         }
+        def kubeconfig = 'kubeconfig.yml'
+        sh "sed -i -e 's/namespace: test/namespace: default/' ${kubeconfig}"
+        sh "sed -i -e 's/nodePort: 31000/nodePort: 30000/' ${kubeconfig}"
+        container('kubectl') {
+            sh "kubectl apply -f ${kubeconfig}"
+        }
+        waitUntilReady('app=trunk-based', 'trunk-based', version, 'default')
     }
 }
