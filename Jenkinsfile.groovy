@@ -136,7 +136,7 @@ podTemplate(label: 'mypod', containers: [
     node('mypod') {
         unstash 'kubeconfig'
 
-        withCredentials([usernamePassword(credentialsId: 'github-api-token', passwordVariable: 'GITHUB_TOKEN', usernameVariable: 'GIT_USERNAME')]) {
+        withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
             container('curl') {
                 gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
             }
