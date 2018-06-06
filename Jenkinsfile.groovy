@@ -11,6 +11,12 @@ podTemplate(label: 'mypod', containers: [
         ]) {
 
     def version
+    def repoUser = 'adessoSchweiz'
+    def repoName = 'trunk-based-backend-kubernetes'
+    def dockerUser = 'adesso'
+    def dockerProject = 'trunk-based'
+    def repoNamePerformanceTests = 'performance-testing'
+    def dockerProjectPerformanceTests = 'performance-testing'
 
     node('mypod') {
         properties([
@@ -23,13 +29,6 @@ podTemplate(label: 'mypod', containers: [
                 ),
                 pipelineTriggers([])
         ])
-
-        def repoUser = 'adessoSchweiz'
-        def repoName = 'trunk-based-backend-kubernetes'
-        def dockerUser = 'adesso'
-        def dockerProject = 'trunk-based'
-        def repoNamePerformanceTests = 'performance-testing'
-        def dockerProjectPerformanceTests = 'performance-testing'
 
         stage('checkout & unit tests & build') {
             git url: "https://github.com/${repoUser}/${repoName}"
@@ -84,40 +83,38 @@ podTemplate(label: 'mypod', containers: [
             junit allowEmptyResults: true, testResults: '**/target/failsafe-reports/TEST-*.xml'
         }
 
-        stage('last test') {
-            dir('testing') {
-                stage('Performance Tests') {
-                    git url: "https://github.com/${repoUser}/${repoNamePerformanceTests}"
-                    container('maven') {
-                        sh 'mvn clean gatling:integration-test'
+        dir('testing') {
+            stage('Performance Tests') {
+                git url: "https://github.com/${repoUser}/${repoNamePerformanceTests}"
+                container('maven') {
+                    sh 'mvn clean gatling:integration-test'
+                }
+                archiveArtifacts artifacts: 'target/gatling/**/*.*', fingerprint: true
+                sh 'mkdir site'
+                sh 'cp -r target/gatling/healthsimulation*/* site'
+            }
+
+            stage('Build Report Image') {
+                container('docker') {
+                    def image = "${dockerUser}/${dockerProjectPerformanceTests}:${version}"
+                    sh "docker build -t ${image} ."
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
                     }
-                    archiveArtifacts artifacts: 'target/gatling/**/*.*', fingerprint: true
-                    sh 'mkdir site'
-                    sh 'cp -r target/gatling/healthsimulation*/* site'
+                    sh "docker push ${image}"
+                }
+            }
+
+            stage('Deploy Testing on Dev') {
+                sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:${version}/' kubeconfig.yml"
+                sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
+                sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
+                sh "sed -i -e 's/nodePort: todo/nodePort: 31400/' kubeconfig.yml"
+                container('kubectl') {
+                    sh "kubectl apply -f kubeconfig.yml"
                 }
 
-                stage('Build Report Image') {
-                    container('docker') {
-                        def image = "${dockerUser}/${dockerProjectPerformanceTests}:${version}"
-                        sh "docker build -t ${image} ."
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                            sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
-                        }
-                        sh "docker push ${image}"
-                    }
-                }
-
-                stage('Deploy Testing on Dev') {
-                    sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:${version}/' kubeconfig.yml"
-                    sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
-                    sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
-                    sh "sed -i -e 's/nodePort: todo/nodePort: 31400/' kubeconfig.yml"
-                    container('kubectl') {
-                        sh "kubectl apply -f kubeconfig.yml"
-                    }
-
-                    stash includes: 'kubeconfig.yml', name: 'kubeconfig'
-                }
+                stash includes: 'kubeconfig.yml', name: 'kubeconfig'
             }
         }
     }
