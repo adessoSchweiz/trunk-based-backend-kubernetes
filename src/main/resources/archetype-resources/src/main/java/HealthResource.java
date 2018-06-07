@@ -1,4 +1,4 @@
-package ch.adesso.trunk.based.health.boundary;
+package ${groupId}.${artifactId}.health.boundary;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;

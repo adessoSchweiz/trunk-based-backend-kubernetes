@@ -8,7 +8,7 @@
   </parent>
   <groupId>ch.adesso</groupId>
   <artifactId>trunk.based</artifactId>
-  <version>0.0.2</version>
+  <version>0.0.6</version>
   <name>trunk-based</name>
   <description>Adesso project template for a happy start in a new project.</description>
   <url>https://adesso.de</url>

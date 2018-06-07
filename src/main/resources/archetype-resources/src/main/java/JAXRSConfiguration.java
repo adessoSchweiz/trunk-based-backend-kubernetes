@@ -1,4 +1,4 @@
-package ch.adesso.trunk.based;
+package ${groupId}.${artifactId};
 
 import javax.ws.rs.ApplicationPath;
 import javax.ws.rs.core.Application;
