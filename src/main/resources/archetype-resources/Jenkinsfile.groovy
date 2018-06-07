@@ -10,7 +10,7 @@ podTemplate(label: 'mypod', containers: [
                 hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
         ]) {
 
-    def version
+    def buildVersion
     def repoUser = 'adessoSchweiz'
     def repoName = 'trunk-based-backend-kubernetes'
     def dockerUser = 'adesso'
@@ -39,41 +39,41 @@ podTemplate(label: 'mypod', containers: [
         }
 
         stage('build image & git tag & docker push') {
-            version = semanticReleasing()
-            currentBuild.displayName = version
+            buildVersion = semanticReleasing()
+            currentBuild.displayName = buildVersion
             wrap([$class: 'BuildUser']) {
                 currentBuild.description = "Started by: ${BUILD_USER} (${BUILD_USER_EMAIL})"
             }
 
             container('maven') {
-                sh "mvn versions:set -DnewVersion=${version}"
+                sh "mvn versions:set -DnewVersion=${buildVersion}"
             }
             sh "git config user.email \"jenkins@adesso.ch\""
             sh "git config user.name \"Jenkins\""
-            sh "git tag -a ${version} -m \"${version}\""
+            sh "git tag -a ${buildVersion} -m \"${buildVersion}\""
 
             withCredentials([usernamePassword(credentialsId: 'github', passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
                 sh "git push https://${GIT_USERNAME}:${GIT_PASSWORD.replaceAll('\\$', '\\\\\\\$')}@github.com/${repoUser}/${repoName}.git --tags"
             }
 
             container('docker') {
-                sh "docker build -t ${dockerUser}/${dockerProject}:${version} ."
+                sh "docker build -t ${dockerUser}/${dockerProject}:${buildVersion} ."
                 withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
                 }
-                sh "docker push ${dockerUser}/${dockerProject}:${version}"
+                sh "docker push ${dockerUser}/${dockerProject}:${buildVersion}"
             }
         }
 
         stage('deploy to test') {
-            sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProject}:todo/image: ${dockerUser}\\/${dockerProject}:${version}/' kubeconfig.yml"
-            sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
+            sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProject}:todo/image: ${dockerUser}\\/${dockerProject}:${buildVersion}/' kubeconfig.yml"
+            sh "sed -i -e 's/value: \"todo\"/value: \"${buildVersion}\"/' kubeconfig.yml"
             sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
             sh "sed -i -e 's/nodePort: todo/nodePort: 31000/' kubeconfig.yml"
             container('kubectl') {
                 sh "kubectl apply -f kubeconfig.yml"
             }
-            waitUntilReady('app=trunk-based', 'trunk-based', version, 'test')
+            waitUntilReady('app=trunk-based', 'trunk-based', buildVersion, 'test')
         }
 
         stage('system tests') {
@@ -96,7 +96,7 @@ podTemplate(label: 'mypod', containers: [
 
             stage('Build Report Image') {
                 container('docker') {
-                    def image = "${dockerUser}/${dockerProjectPerformanceTests}:${version}"
+                    def image = "${dockerUser}/${dockerProjectPerformanceTests}:${buildVersion}"
                     sh "docker build -t ${image} ."
                     withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                         sh "docker login --username ${DOCKER_USERNAME} --password ${DOCKER_PASSWORD.replaceAll('\\$', '\\\\\\\$')}"
@@ -106,8 +106,8 @@ podTemplate(label: 'mypod', containers: [
             }
 
             stage('Deploy Testing on Dev') {
-                sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:${version}/' kubeconfig.yml"
-                sh "sed -i -e 's/value: \"todo\"/value: \"${version}\"/' kubeconfig.yml"
+                sh "sed -i -e 's/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:todo/image: ${dockerUser}\\/${dockerProjectPerformanceTests}:${buildVersion}/' kubeconfig.yml"
+                sh "sed -i -e 's/value: \"todo\"/value: \"${buildVersion}\"/' kubeconfig.yml"
                 sh "sed -i -e 's/namespace: todo/namespace: test/' kubeconfig.yml"
                 sh "sed -i -e 's/nodePort: todo/nodePort: 31400/' kubeconfig.yml"
                 container('kubectl') {
@@ -145,7 +145,7 @@ podTemplate(label: 'mypod', containers: [
             stage('release to prod') {
                 withCredentials([string(credentialsId: 'github-api-token', variable: 'GITHUB_TOKEN')]) {
                     container('curl') {
-                        gitHubRelease(version, repoUser, repoName, GITHUB_TOKEN)
+                        gitHubRelease(buildVersion, repoUser, repoName, GITHUB_TOKEN)
                     }
                 }
                 def kubeconfig = 'kubeconfig.yml'
@@ -154,7 +154,7 @@ podTemplate(label: 'mypod', containers: [
                 container('kubectl') {
                     sh "kubectl apply -f ${kubeconfig}"
                 }
-                waitUntilReady('app=trunk-based', 'trunk-based', version, 'default')
+                waitUntilReady('app=trunk-based', 'trunk-based', buildVersion, 'default')
             }
         }
     }

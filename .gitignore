@@ -1,6 +1,3 @@
-target
-.idea/artifacts
-.idea/libraries
-.idea/*xml
+target/
+.idea
 *.iml
-.name
